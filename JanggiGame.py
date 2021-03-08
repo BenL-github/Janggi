@@ -192,33 +192,95 @@ class Elephant(Piece):
         super().__init__(tile, player, board)
 
     def get_valid_moves(self):
+        valid_moves = list()
+        potential_paths = self.find_paths()
 
-        return
+        for path in potential_paths:
+            for step in range(0,3):
+                col = path[step][0]
+                row = path[step][1]
+                tile = self._board.get_tile(col, row)
+                piece = tile.get_piece()
+                player = ""
+
+                # if there is a piece in the first two steps of elephant's path, path is not valid
+                if (step == 0 or step == 1) and piece is not None:
+                    break
+                # if end of path is obstructed by player's own piece, path is not valid
+                if step == 2 and piece is not None and piece.get_player() == self.get_player():
+                    break
+
+                # if end of path is unobstructed or contains opponent's piece, path is valid
+                elif step == 2 and (piece is None or piece.get_player() != self.get_player()):
+                    valid_moves.append(path[step])
+
+        return valid_moves
 
     def find_paths(self):
         # find any available orthog tiles
         orthogonal = self._tile.get_all_orthogonal_tiles()
+        current = self.get_location()
+        direction = list()
+        paths = list()
+
+        for step_one in orthogonal:
+            if step_one[0] < current[0]:
+                direction.append("LEFT")
+            elif step_one[0] > current[0]:
+                direction.append("RIGHT")
+            elif step_one[1] < current[1]:
+                direction.append("UP")
+            elif step_one[1] > current[1]:
+                direction.append("DOWN")
 
         # find the diagonals of the orthogonal tiles
+        index = 0
+        for orthog_tile in orthogonal:
+            col = orthog_tile[0]
+            row = orthog_tile[1]
+            tile = self._board.get_tile(col, row)
 
-        # if there are diagonals, there is a path
-        return
 
+            fork = tile.get_diagonal_tiles_extended(direction[index])
 
-class General(Piece):
-    def __init__(self, tile, player, board):
-        super().__init__(tile, player, board)
+            for diagonal in fork:
+                paths.append([orthog_tile, diagonal[0], diagonal[1]])
 
-    def get_valid_moves(self):
-        """ returns a set of valid tiles the general can move to """
-        return
+            index += 1
+
+        return paths
 
 class Guard(Piece):
     def __init__(self, title, player, board):
         super().__init__(title, player, board)
 
     def get_valid_moves(self):
-        return
+        paths = self.get_paths()
+        valid_moves = list()
+        for path in paths:
+            col = path[0]
+            row = path[1]
+            piece = self._board.get_piece_at_tile(col, row)
+            if piece is not None and piece.get_player() == self._player:
+                continue
+            valid_moves.append(path)
+
+        return valid_moves
+
+    def get_paths(self):
+        paths = list()
+        adjacent = self._tile.get_adjacent_tiles()
+        for tile in adjacent:
+            col = tile[0]
+            row = tile[1]
+            if col >= 'd' and col <= 'f' and (row <= 3 or row >= 8):
+                paths.append(tile)
+
+        return paths
+
+class General(Guard):
+    def __init__(self, tile, player, board):
+        super().__init__(tile, player, board)
 
 class Horse(Piece):
     def __init__(self, tile, player, board):
@@ -343,7 +405,6 @@ class Soldier(Piece):
                 paths.append(current_tile.get_diagonal_tiles("UP"))
 
         return paths
-
 
 class JanggiTile():
     def __init__(self, board, col, row):
@@ -562,6 +623,11 @@ class JanggiBoard():
         col = to_numerical(col)
 
         return board[row - 1][col]
+
+    def get_piece_at_tile(self, col, row):
+        tile = self.get_tile(col, row)
+        piece = tile.get_piece()
+        return piece
 
 
     def set_up(self):
