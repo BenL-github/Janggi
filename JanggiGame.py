@@ -195,6 +195,15 @@ class Elephant(Piece):
 
         return
 
+    def find_paths(self):
+        # find any available orthog tiles
+        orthogonal = self._tile.get_all_orthogonal_tiles()
+
+        # find the diagonals of the orthogonal tiles
+
+        # if there are diagonals, there is a path
+        return
+
 
 class General(Piece):
     def __init__(self, tile, player, board):
@@ -234,7 +243,7 @@ class Horse(Piece):
 
             # checks if the first tile is blocked and second tile does not contain a piece of same player
             if piece is None and (piece_2 is None or piece_2.get_player() != self.get_player()):
-                valid_paths.append(x)
+                valid_paths.append(x[1])
 
         return valid_paths
 
@@ -242,7 +251,6 @@ class Horse(Piece):
         """ Finds potential paths that the horse can move to. Does not check if anything is blocking """
         orthogonal = self._tile.get_all_orthogonal_tiles()
         current = self.get_location()
-        step = list()
         direction = list()
         for step_one in orthogonal:
             if step_one[0] < current[0]:
@@ -269,8 +277,6 @@ class Horse(Piece):
 
             # adds all the branching paths to variable 'pathing'
             for x in second_tiles:
-                branches = len(x)
-
                 pathing.append([tile.get_location(), x])
 
             index += 1
@@ -419,6 +425,59 @@ class JanggiTile():
                 tiles_in_direction.append(tile)
 
         return tiles_in_direction
+
+    def get_diagonal_tiles_single(self, direction):
+        all_diagonal = self.get_all_diagonal_tiles()
+
+        current_location = self.get_location()
+        tiles_in_direction = list()
+        for tile in all_diagonal:
+            if direction == "UL" and tile[1] < current_location[1] and tile[0] < current_location[0]:
+                tiles_in_direction.append(tile)
+
+            elif direction == "UR" and tile[1] < current_location[1] and tile[0] > current_location[0]:
+                tiles_in_direction.append(tile)
+
+            elif direction == "LL" and tile[1] > current_location[1] and tile[0] < current_location[0]:
+                tiles_in_direction.append(tile)
+
+            elif direction == "LR" and tile[1] > current_location[1] and tile[0] > current_location[0]:
+                tiles_in_direction.append(tile)
+
+
+        return tiles_in_direction
+
+    def get_diagonal_tiles_extended(self, direction):
+        dict = {"UP": ("UL", "UR"), "DOWN": ("LL", "LR"), "LEFT": ("UL", "LL"), "RIGHT": ("UR", "LR")}
+        dir = dict[direction]
+
+        paths = list()
+
+        # UP => UL and UR
+        first_dir_tile1 = self.get_diagonal_tiles_single(dir[0])
+        if first_dir_tile1 != []:
+            first_dir_tile1 = first_dir_tile1[0]
+            col = first_dir_tile1[0]
+            row = first_dir_tile1[1]
+            tile_obj = self._board.get_tile(col, row)
+            first_dir_tile2 = tile_obj.get_diagonal_tiles_single(dir[0])
+            if first_dir_tile2 != []:
+                first_dir_tile2 = first_dir_tile2[0]
+                paths.append([first_dir_tile1, first_dir_tile2])
+
+        second_dir_tile1 = self.get_diagonal_tiles_single(dir[1])
+        if second_dir_tile1 != []:
+            second_dir_tile1 = second_dir_tile1[0]
+            col = second_dir_tile1[0]
+            row = second_dir_tile1[1]
+            tile_obj = self._board.get_tile(col, row)
+            second_dir_tile2 = tile_obj.get_diagonal_tiles_single(dir[1])
+            if second_dir_tile2 != []:
+                second_dir_tile2 = second_dir_tile2[0]
+                paths.append([second_dir_tile1, second_dir_tile2])
+
+
+        return paths
 
     def get_all_orthogonal_tiles(self):
 
