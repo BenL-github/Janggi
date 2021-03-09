@@ -1,4 +1,4 @@
-# Name:
+# Name: Benny Li
 # Date:
 # Description:
 
@@ -11,6 +11,9 @@ class Piece():
 
     def get_location(self):
         return self._tile.get_location()
+
+    def get_tile(self):
+        return self._tile
 
     def set_tile(self, tile):
         self._tile = tile
@@ -482,6 +485,7 @@ class JanggiTile():
 
             elif direction == "LEFT" and tile[0] < current_location[0]:
                 tiles_in_direction.append(tile)
+
             elif direction == "RIGHT" and tile[0] > current_location[0]:
                 tiles_in_direction.append(tile)
 
@@ -593,7 +597,13 @@ class JanggiTile():
 
 class JanggiBoard():
     def __init__(self):
-        self._tiles = [[JanggiTile(self, col, row) for col in range(0,9)] for row in range(1,11)]
+        self._tiles = [[JanggiTile(self, col, row) for col in range(0, 9)] for row in range(1, 11)]
+        self._red_pieces = []
+        self._blue_pieces = []
+        self._red_general = None
+        self._blue_general = None
+        self._captured = []
+
         self._red_set_up = {"a1": "CHARIOT", "i1": "CHARIOT",
                             "a4": "SOLDIER", "c4": "SOLDIER", "e4": "SOLDIER", "g4": "SOLDIER", "i4": "SOLDIER",
                             "b1": "ELEPHANT", "g1": "ELEPHANT",
@@ -609,6 +619,36 @@ class JanggiBoard():
                              "b8": "CANNON", "h8": "CANNON",
                              "e9": "GENERAL"}
 
+    def add_red(self, piece):
+        self._red_pieces.append(piece)
+
+    def add_blue(self, piece):
+        self._blue_pieces.append(piece)
+
+    def set_blue_general(self, general):
+        self._blue_general = general
+
+    def is_blue_in_check(self):
+        is_in_check = False
+
+        # checks if any red piece can capture blue general in next turn
+        for piece in self._red_pieces:
+            for move in piece.get_valid_moves():
+                if move == self._blue_general.get_location():
+                    is_in_check = True
+
+        return is_in_check
+
+    def is_red_in_check(self):
+        is_in_check = False
+
+        # checks if any blue piece can capture red general in next turn
+        for piece in self._blue_pieces:
+            for move in piece.get_valid_moves():
+                if move == self._red_general.get_location():
+                    is_in_check = True
+
+        return is_in_check
 
     def get_tile(self, col, row):
         """
@@ -629,6 +669,22 @@ class JanggiBoard():
         piece = tile.get_piece()
         return piece
 
+    def replace_piece_at_tile(self, col, row, new_piece):
+        destination_tile = self.get_tile(col, row)
+        checked_piece = destination_tile.get_piece()
+        # if there is a piece at the tile, it is captured (and removed from tile)
+        if checked_piece is not None:
+            checked_piece.set_tile(None)
+            self._captured.append(checked_piece)
+
+        # remove new_piece from old tile location
+        old_tile = new_piece.get_tile()
+        old_tile.set_piece(None)
+
+        # set new_piece on new tile location
+        destination_tile.set_piece(new_piece)
+        new_piece.set_tile(destination_tile)
+
 
     def set_up(self):
         """ Sets up the game board """
@@ -641,6 +697,11 @@ class JanggiBoard():
             # creates the piece object for the red player
             piece_type = self._red_set_up[x]
             piece = self.create_piece(piece_type, tile, "RED", self)
+
+            if piece_type == "GENERAL":
+                self._red_general = piece
+
+            self._red_pieces.append(piece)
             tile.set_piece(piece)
 
         for x in self._blue_set_up:
@@ -652,6 +713,11 @@ class JanggiBoard():
             # creates the piece object for the red player
             piece_type = self._blue_set_up[x]
             piece = self.create_piece(piece_type, tile, "BLUE", self)
+
+            if piece_type == "GENERAL":
+                self._blue_general = piece
+
+            self._blue_pieces.append(piece)
             tile.set_piece(piece)
 
     def create_piece(self, type, tile, player, board):
@@ -670,6 +736,7 @@ class JanggiBoard():
             piece = Cannon(tile, player, board)
         elif type == "GENERAL":
             piece = General(tile, player, board)
+
         return piece
 
     def print_board(self):
@@ -688,7 +755,6 @@ class JanggiBoard():
                         outfile.write(",")
                 outfile.write("\n")
 
-
 class JanggiGame():
     def __init__(self):
         self._board = JanggiBoard()
@@ -701,26 +767,53 @@ class JanggiGame():
     def get_board(self):
         return self._board
 
-    def is_in_check(self):
-        return
+    def is_in_check(self, player):
+        if player == "red":
+            return self._board.is_red_in_check()
+        else:
+            return self._board.is_blue_in_check()
+
+    def valid_col(self, col):
+        """
+        Return True if valid column, False if not
+        :param col:
+        :return:
+        """
+        valid_col = col >= 'a' and col <= 'i'
+        return valid_col
+
+    def valid_row(self, row):
+        valid_row = row >= 1 and row <= 10
 
     def make_move(self, start, end):
-        # false if start or end not within board
+        # if start or end is not a valid location, return false
+        start_col = start[0]
+        start_row = start[1:]
+        end_col = end[0]
+        end_row = end[1:]
 
-        # if player's general is in check, they must make a move that protects the general
+        if (not self.valid_col(start_col)) and (not self.valid_row(start_row)) \
+            and (not self.valid_col(end_col)) and (not self.valid_row(end_row)):
 
-        # if start == end, pass turn
+            return False
 
-        # find the tile at start
+        # if no piece on start tile, return False
+        target_piece = self._board.get_piece_at_tile(start[0], start[1:])
+        if target_piece is None:
+            return False
 
-        # find the piece at tile
+        # if target piece does not belong to current player, return False
+        if target_piece.get_player() != self._current_player:
+            return False
 
-        # if no piece return False
+        # if end tile is not a valid move for piece, return False
+        valid_moves = target_piece.get_valid_moves()
+        if (end[0], end[1:]) is not in valid_moves:
+            return False
 
-        # if piece is not current player's, return false
+        # if move leaves general in check, return False
 
-        # if end is not a valid move for the piece, return false
-
+        # if current player's general is in check, current move must save general
 
 
         return
