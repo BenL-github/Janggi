@@ -883,6 +883,7 @@ class JanggiGame():
 
         # checks if player is attempting to pass a turn
         if start == end and not self.is_in_check(self._current_player):
+            self.switch_player()
             return True
         elif start == end:
             return False
