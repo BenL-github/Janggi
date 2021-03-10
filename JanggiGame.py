@@ -628,26 +628,49 @@ class JanggiBoard():
     def set_blue_general(self, general):
         self._blue_general = general
 
-    def is_blue_in_check(self):
+    def get_captured(self):
+        """
+        Returns list of captured pieces
+        :return: list object. Contains list of captured pieces
+        """
+        return self._captured
+
+    def is_player_in_check(self, player, captured_pieces):
+        """
+        Checks if a player is in check.
+
+        :param player:
+        :param captured_pieces:
+        :return: Boolean value
+        """
         is_in_check = False
 
-        # checks if any red piece can capture blue general in next turn
-        for piece in self._red_pieces:
+        # finds opponent's pieces
+        opponent_pieces = None
+
+        # general of the player to check
+        general = None
+
+        if player == "BLUE":
+            opponent_pieces = self._red_pieces
+            general = self._blue_general
+        else:
+            opponent_pieces = self._blue_pieces
+            general = self._red_general
+
+        # finds pieces belonging to the opponent that are not captured
+        non_captured = [x for x in opponent_pieces if x not in captured_pieces]
+
+        # checks if general can be captured in opponent's next turn
+        # iterates through every non-captured piece
+        for piece in non_captured:
+            # iterates through every valid move for the opponent piece
             for move in piece.get_valid_moves():
-                if move == self._blue_general.get_location():
+                # if the opponent piece is able to capture player's general, player is in check
+                if move == general.get_location():
                     is_in_check = True
 
-        return is_in_check
-
-    def is_red_in_check(self):
-        is_in_check = False
-
-        # checks if any blue piece can capture red general in next turn
-        for piece in self._blue_pieces:
-            for move in piece.get_valid_moves():
-                if move == self._red_general.get_location():
-                    is_in_check = True
-
+        # return True if player is in check, False otherwise
         return is_in_check
 
     def get_tile(self, col, row):
@@ -669,22 +692,75 @@ class JanggiBoard():
         piece = tile.get_piece()
         return piece
 
-    def replace_piece_at_tile(self, col, row, new_piece):
+    def move_piece(self, piece, col, row):
+        """
+        Moves a piece to a target location
+
+        :param piece:
+        :param col:
+        :param row:
+        :return:
+        """
+
         destination_tile = self.get_tile(col, row)
         checked_piece = destination_tile.get_piece()
+
         # if there is a piece at the tile, it is captured (and removed from tile)
         if checked_piece is not None:
             checked_piece.set_tile(None)
             self._captured.append(checked_piece)
 
         # remove new_piece from old tile location
-        old_tile = new_piece.get_tile()
+        old_tile = piece.get_tile()
         old_tile.set_piece(None)
 
         # set new_piece on new tile location
-        destination_tile.set_piece(new_piece)
-        new_piece.set_tile(destination_tile)
+        destination_tile.set_piece(piece)
+        piece.set_tile(destination_tile)
 
+    def is_valid_move(self, piece, col, row):
+        """
+        Tests if a move places a player's general in check.
+        :return: True if the move does not put player's general in check, False if it does
+        """
+
+        destination_tile = self.get_tile(col, row)
+        captured_piece = destination_tile.get_piece()
+
+        temporary_capture = self._captured.copy()
+        # if there is a piece at the tile, temporarily remove from board
+        if captured_piece is not None:
+            captured_piece.set_tile(None)
+            temporary_capture.append(captured_piece)
+
+        # remove new_piece from old tile location
+        old_tile = piece.get_tile()
+        old_tile.set_piece(None)
+
+        # set new_piece on new tile location
+        destination_tile.set_piece(piece)
+        piece.set_tile(destination_tile)
+
+        # check if current player is in check after the move is made
+        in_check = self.is_player_in_check(piece.get_player(), temporary_capture)
+
+        # reverse move (restore board state)
+
+        # captured piece (if exists) is placed back on tile
+        if captured_piece is not None:
+            captured_piece.set_tile(destination_tile)
+            destination_tile.set_piece(captured_piece)
+        # if no piece was captured, destination tile is empty
+        else:
+            destination_tile.set_piece(None)
+
+        # target piece is placed back on starting tile
+        old_tile.set_piece(piece)
+        piece.set_tile(old_tile)
+
+        # return True if the move placed player in check
+        # return False if move does not place player in check
+        return not in_check
 
     def set_up(self):
         """ Sets up the game board """
@@ -758,6 +834,8 @@ class JanggiBoard():
 class JanggiGame():
     def __init__(self):
         self._board = JanggiBoard()
+        self._board.set_up()
+
         self._game_state = "UNFINISHED"
         self._current_player = "BLUE"
 
@@ -768,14 +846,11 @@ class JanggiGame():
         return self._board
 
     def is_in_check(self, player):
-        if player == "red":
-            return self._board.is_red_in_check()
-        else:
-            return self._board.is_blue_in_check()
+        return self._board.is_player_in_check(player.upper(), self._board.get_captured())
 
     def valid_col(self, col):
         """
-        Return True if valid column, False if not
+        Checks if column input is within valid range
         :param col:
         :return:
         """
@@ -783,22 +858,29 @@ class JanggiGame():
         return valid_col
 
     def valid_row(self, row):
+        """
+        Checks if row input is within valid range
+        :param row:
+        :return:
+        """
         valid_row = row >= 1 and row <= 10
 
     def make_move(self, start, end):
         # if start or end is not a valid location, return false
         start_col = start[0]
-        start_row = start[1:]
+        start_row = int(start[1:])
         end_col = end[0]
-        end_row = end[1:]
+        end_row = int(end[1:])
 
         if (not self.valid_col(start_col)) and (not self.valid_row(start_row)) \
             and (not self.valid_col(end_col)) and (not self.valid_row(end_row)):
 
             return False
 
+        # finds piece at start tile
+        target_piece = self._board.get_piece_at_tile(start_col, start_row)
+
         # if no piece on start tile, return False
-        target_piece = self._board.get_piece_at_tile(start[0], start[1:])
         if target_piece is None:
             return False
 
@@ -808,16 +890,34 @@ class JanggiGame():
 
         # if end tile is not a valid move for piece, return False
         valid_moves = target_piece.get_valid_moves()
-        if (end[0], end[1:]) is not in valid_moves:
+        if (end_col, end_row) not in valid_moves:
             return False
 
-        # if move leaves general in check, return False
+        """ UNFINISHED """
+        # if move leaves general in check, return False UNLESS *************** IT IS A GAME WINNING MOVE
+        # forces player to protect general if already in check
+        # does not matter if in check or not... next move must not make general stay in check
+        if not self._board.is_valid_move(target_piece, end_col, end_row):
+            return False
 
-        # if current player's general is in check, current move must save general
+        # checks if there are no moves a player can make that prevent general from being captured
 
+        # makes move if valid
+        self._board.move_piece(target_piece, end_col, end_row)
 
-        return
+        # switch player turn
+        self.switch_player()
 
+        # return true if move was successful
+        return True
+
+    def switch_player(self):
+        if self._current_player == "BLUE":
+            self._current_player = "RED"
+        else:
+            self._current_player = "BLUE"
+
+# must be moved inside a class
 def to_alphabetical(num):
     num += 97
     return chr(num)
