@@ -106,9 +106,10 @@ class Cannon(Piece):
             # stop recursive call and return list if current tile has a cannon or a piece from same player
             if isCannon or samePlayer:
                 return tile_list
-            # if not a cannon and not same player
+            # if not a cannon and not same player, tile has a piece that is able to be captured.
             else:
                 tile_list.append(tile.get_location())
+                return tile_list
 
         # checks next tile exists
         next_tile = tile.get_orthogonal_tiles(direction)
@@ -579,7 +580,6 @@ class JanggiTile():
 
         return tiles_in_direction
 
-
     def rec_find_vertical_tiles(self, tile, direction, tile_list=None):
         if tile_list is None:
             tile_list = list()
@@ -594,7 +594,6 @@ class JanggiTile():
         else:
             next_tile_obj = self._board.get_tile(next_tile[0][0], next_tile[0][1])
             return self.rec_find_vertical_tiles(next_tile_obj, direction, tile_list)
-
 
 class JanggiBoard():
     def __init__(self):
@@ -760,9 +759,30 @@ class JanggiBoard():
         old_tile.set_piece(piece)
         piece.set_tile(old_tile)
 
-        # return True if the move placed player in check
-        # return False if move does not place player in check
+        # return True if the move does not place player in check
+        # return False if the move places player in check
         return not in_check
+
+    def is_checkmated(self, player):
+        # finds all possible moves the player can make
+        player_pieces = {"BLUE": [x for x in self._blue_pieces if x not in self._captured],
+                  "RED": [x for x in self._red_pieces if x not in self._captured]}
+        available_pieces = player_pieces[player]
+
+        # Boolean that determines if the player is checkmated
+        is_checkmated = True
+
+        # iterate through every piece belonging to player
+        for piece in available_pieces:
+            # check if any move that piece can make does not leave player's general in check
+            # if there is at least one valid move, player is not check_mated
+            # if no valid moves, player is checkmated
+            for move in piece.get_valid_moves():
+                is_valid_move = self.is_valid_move(piece, move[0], move[1])
+                if is_valid_move:
+                    is_checkmated = False
+
+        return is_checkmated
 
     def set_up(self):
         """ Sets up the game board """
@@ -871,6 +891,10 @@ class JanggiGame():
 
         print("game.make_move(", start,",", end, ")")
 
+        # if game is finished, return False
+        if self._game_state != "UNFINISHED":
+            return False
+
         # if start or end is not a valid location, return false
         start_col = start[0]
         start_row = int(start[1:])
@@ -915,18 +939,26 @@ class JanggiGame():
         if not self._board.is_valid_move(target_piece, end_col, end_row):
             return False
 
-        # checks if there are no moves a player can make that prevent general from being captured
-
         # makes move if valid
         self._board.move_piece(target_piece, end_col, end_row)
 
         # switch player turn
         self.switch_player()
 
+        # checks if next player is unable to make any moves to save general
+        if self._board.is_checkmated(self._current_player):
+            loser_winner = {"BLUE": "RED", "RED": "BLUE"}
+            self.set_winner(loser_winner[self._current_player])
+
+
         self._board.print_board()
 
         # return true if move was successful
         return True
+
+    def set_winner(self, player):
+        self._game_state = player + "_WON"
+
 
     def switch_player(self):
         if self._current_player == "BLUE":
