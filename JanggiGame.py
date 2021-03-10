@@ -710,6 +710,7 @@ class JanggiBoard():
             checked_piece.set_tile(None)
             self._captured.append(checked_piece)
 
+
         # remove new_piece from old tile location
         old_tile = piece.get_tile()
         old_tile.set_piece(None)
@@ -867,7 +868,8 @@ class JanggiGame():
 
     def make_move(self, start, end):
 
-        print("make_move(", start, ",", end, ")")
+        # print("game.make_move(", start,",", end, ")")
+
         # if start or end is not a valid location, return false
         start_col = start[0]
         start_row = int(start[1:])
@@ -879,8 +881,17 @@ class JanggiGame():
 
             return False
 
+        # checks if player is attempting to pass a turn
+        if start == end and not self.is_in_check(self._current_player):
+            return True
+        elif start == end:
+            return False
+
+
         # finds piece at start tile
         target_piece = self._board.get_piece_at_tile(start_col, start_row)
+
+        print(type(target_piece))
 
         # if no piece on start tile, return False
         if target_piece is None:
@@ -909,6 +920,8 @@ class JanggiGame():
 
         # switch player turn
         self.switch_player()
+
+        self._board.print_board()
 
         # return true if move was successful
         return True
