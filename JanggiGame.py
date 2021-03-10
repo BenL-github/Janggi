@@ -868,7 +868,7 @@ class JanggiGame():
 
     def make_move(self, start, end):
 
-        # print("game.make_move(", start,",", end, ")")
+        print("game.make_move(", start,",", end, ")")
 
         # if start or end is not a valid location, return false
         start_col = start[0]
@@ -891,7 +891,7 @@ class JanggiGame():
         # finds piece at start tile
         target_piece = self._board.get_piece_at_tile(start_col, start_row)
 
-        print(type(target_piece))
+        #print(type(target_piece))
 
         # if no piece on start tile, return False
         if target_piece is None:
@@ -921,7 +921,7 @@ class JanggiGame():
         # switch player turn
         self.switch_player()
 
-        self._board.print_board()
+        # self._board.print_board()
 
         # return true if move was successful
         return True
