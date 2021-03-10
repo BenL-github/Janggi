@@ -58,7 +58,8 @@ class Cannon(Piece):
             tiles_in_direction = self.rec_find_vertical_tiles(tile_obj, direction[index])
 
             if tiles_in_direction != []:
-                paths.append(tiles_in_direction)
+                for valid_location in tiles_in_direction:
+                    paths.append(valid_location)
             index += 1
 
         return paths
@@ -922,7 +923,7 @@ class JanggiGame():
         # switch player turn
         self.switch_player()
 
-        # self._board.print_board()
+        self._board.print_board()
 
         # return true if move was successful
         return True
