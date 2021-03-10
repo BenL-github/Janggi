@@ -866,6 +866,7 @@ class JanggiGame():
         valid_row = row >= 1 and row <= 10
 
     def make_move(self, start, end):
+        print("Attempting: ", start, "->", end)
         # if start or end is not a valid location, return false
         start_col = start[0]
         start_row = int(start[1:])
