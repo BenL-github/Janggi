@@ -1,41 +1,83 @@
 # Name: Benny Li
-# Date:
-# Description:
+# Date: March 11, 2021
+# Description: This module contains the framework for the traditional korean "chess" game of Janggi.
+# Janggi is a two player game where each player takes turns to eventually capture the opponent's
+# general. Each player has  general, guard, soldier, cannon, horse, chariot, and elephant pieces
+# which can all move differently.
 
 class Piece():
+    """ Represents a piece on the board """
+
     def __init__(self, tile, player, board):
+        """
+        Initializes the piece
+        :param tile: the tile the piece is on
+        :param player: the player the piece belongs to
+        :param board: the board the piece is on
+        """
         self._tile = tile
         self._player = player
         self._board = board
         self._captured = False
 
     def get_location(self):
+        """
+        Returns the location of the piece
+        :return: a set containing the col and row of the  pieces’s location
+        """
+
         return self._tile.get_location()
 
     def get_tile(self):
+        """
+        Returns the tile object that the piece is on
+        :return: a tile object
+        """
         return self._tile
 
     def set_tile(self, tile):
+        """
+        Sets the tile object that the piece is on
+        :param tile: The new tile that the piece is on
+        :return: None
+        """
         self._tile = tile
 
     def get_player(self):
+        """
+        Returns the player that the piece belongs to
+        :return: String containing player name
+        """
         return self._player
 
-    def isCaptured(self):
-        return self._captured
-
-    def set_Captured(self):
-        self._captured = True
 
 class Cannon(Piece):
+    """ Represents a piece that is a cannon """
+
     def __init__(self, tile, player, board):
+        """ Initializes the cannon piece
+
+        :param tile: The tile that the cannon is on
+        :param player: the player that the cannon belongs to
+        :param board: the board that the cannon is on
+        """
         super().__init__(tile, player, board)
 
     def get_valid_moves(self):
+        """
+        Returns all possible moves the cannon is able to take
+        :return: a list. The list contains tuples of each location the cannon is able to move to.
+        The cannon is able to move any amount of tiles in orthogonal directions as long as there is
+        a non-cannon piece to “jump” over. The cannon can only captures piece that are non-cannon.
+        """
+
         paths = list()
+        # obtains tiles in orthogonal directions
         orthogonal = self._tile.get_all_orthogonal_tiles()
+        # obtains the cannon’s current location
         current = self._tile.get_location()
 
+        # finds the direction of the orthogonal tile relative to the current position
         direction = list()
         for step_one in orthogonal:
             if step_one[0] < current[0]:
@@ -47,51 +89,149 @@ class Cannon(Piece):
             elif step_one[1] > current[1]:
                 direction.append("DOWN")
 
+        # finds all valid tiles the cannon is able to move to in a specific direction
+        # index tracks the direction of the orthogonal tile
         index = 0
         for tile in orthogonal:
-
+            # obtains the tile object at the orthogonal location
             col = tile[0]
             row = tile[1]
-
             tile_obj = self._board.get_tile(col, row)
 
+            # recursively find all tiles that the cannon is able to move to in a specific direction
             tiles_in_direction = self.rec_find_vertical_tiles(tile_obj, direction[index])
 
+            # if there are any tiles in the specific direction, append the tile to the list of
+            # valid locations the cannon can move to
             if tiles_in_direction != []:
                 for valid_location in tiles_in_direction:
                     paths.append(valid_location)
+            #
             index += 1
+
+        # cannon may also move diagonally within palace, if there is a piece to jump over
+        if current == ("d", 1) or current == ("d", 8):
+            diagonal_paths = self.rec_find_diagonal_tiles(current, "LR")
+            for path in diagonal_paths:
+                paths.append(path)
+        elif current == ("d", 3) or current == ("d", 10):
+            diagonal_paths = self.rec_find_diagonal_tiles(current, "UR")
+            for path in diagonal_paths:
+                paths.append(path)
+        elif current == ("f", 1) or current == ("f", 8):
+            diagonal_paths = self.rec_find_diagonal_tiles(current, "LL")
+            for path in diagonal_paths:
+                paths.append(path)
+        elif current == ("f", 3) or current == ("f", 10):
+            diagonal_paths = self.rec_find_diagonal_tiles(current, "UL")
+            for path in diagonal_paths:
+                paths.append(path)
 
         return paths
 
-    def rec_find_vertical_tiles(self, tile, direction, jumpable = False, tile_list = None):
+    def rec_find_diagonal_tiles(self, tile, direction, jumpable = False, tile_list = None):
+        """
+        Recursively finds the diagonal tiles if the cannon is in a palace
+        :param tile: the current tile
+        :param direction: the direction the cannon can move on the diagonal
+        :param jumpable: boolean. True if the cannon has a piece to jump over
+        :param tile_list: list of tiles the cannon can move to
+        :return:
+        """
+        # gets current tile object
+        current_tile_obj = self._board.get_tile(tile[0], tile[1])
 
+        # stops the recursion at these tiles
+        stop_tiles = [("c", 4), ("c", 7), ("g", 4), ("g", 7)]
+        if tile in stop_tiles:
+            return tile_list
+
+        # initializes the tile list. Skips the first tile of the recursion because
+        # it is the tile that the cannon is currently on
+        if tile_list is None:
+            tile_list = list()
+            next_tile = current_tile_obj.get_diagonal_tiles_single(direction)
+            return self.rec_find_diagonal_tiles(next_tile[0], direction, jumpable, tile_list)
+
+        # the piece on the current tile
+        piece = current_tile_obj.get_piece()
+
+        # checks if the cannon has a piece to jump over
+        if not jumpable and piece is not None:
+            jumpable = True
+
+            next_tile = current_tile_obj.get_diagonal_tiles_single(direction)
+
+            if next_tile != []:
+                return self.rec_find_diagonal_tiles(next_tile[0], direction, jumpable, tile_list)
+            else:
+                return tile_list
+        elif not jumpable and piece is None:
+            next_tile = current_tile_obj.get_diagonal_tiles_single(direction)
+
+            if next_tile != []:
+                return self.rec_find_diagonal_tiles(next_tile[0], direction, jumpable, tile_list)
+            else:
+                return tile_list
+
+        elif jumpable and piece is not None:
+            if piece.get_player() == self._player:
+                return tile_list
+            else:
+                tile_list.append(tile)
+                return tile_list
+        elif jumpable and piece is None:
+            tile_list.append(tile)
+            next_tile = current_tile_obj.get_diagonal_tiles_single(direction)
+            if next_tile != []:
+                return self.rec_find_diagonal_tiles(next_tile[0], direction, jumpable, tile_list)
+            else:
+                return tile_list
+
+
+    def rec_find_vertical_tiles(self, tile, direction, jumpable=False, tile_list=None):
+        """
+        Recursively checks if a tile in a specific direction is a valid move for the cannon
+        :param tile: the current tile to check
+        :param direction: the direction of next tile relative to current tile
+        :param jumpable: determines if the cannon has a piece to jump over
+        :param tile_list: the list of tiles that the cannon is able to move to
+        :return: a list. Contains all valid locations the cannon may move to. The locations are represented as tuples.
+        """
+        # initializes the list to return
         if tile_list is None:
             tile_list = list()
 
+        # finds the piece on current tile
+
         piece = tile.get_piece()
 
+        # if algorithm has not found a piece to “jump” over yet, check if piece on current
+        # tile is a valid piece to jump over. The piece must not be a cannon
         if jumpable is False and piece is not None and type(piece).__name__ != "Cannon":
             jumpable = True
 
-            # checks next tile exists
+            # checks if next tile exists
             next_tile = tile.get_orthogonal_tiles(direction)
 
-            # end of board
+            # if end of board is reached, stop recursion
             if next_tile == []:
                 return tile_list
 
-            # recursively call next tile
+            # set next tile the function will check for
             col = next_tile[0][0]
             row = next_tile[0][1]
             next_tile_obj = self._board.get_tile(col, row)
 
+            # recursively check if next tile is a valid move
             return self.rec_find_vertical_tiles(next_tile_obj, direction, jumpable, tile_list)
 
-        # if there was a piece to jump over and current tile has no piece, add current tile to list
+        # if there was a piece to jump over and current tile has no piece, current tile is a valid location
         if jumpable and piece is None:
             tile_list.append(tile.get_location())
-        # if jumpable and current tile has a piece
+
+        # if jumpable (there was a piece to jump over) and current tile has a piece,
+        # check if piece is able to be captured
         elif jumpable:
             # finds the piece type and player of the piece on current tile
             piece_type = type(piece).__name__
@@ -102,19 +242,20 @@ class Cannon(Piece):
             # checks if the piece is from current player
             samePlayer = player == self.get_player()
 
-
-            # stop recursive call and return list if current tile has a cannon or a piece from same player
+            # stop recursive call and return list if current tile has a cannon or a
+            # piece from same player (cannot capture a cannon or piece from same player)
             if isCannon or samePlayer:
                 return tile_list
+
             # if not a cannon and not same player, tile has a piece that is able to be captured.
             else:
                 tile_list.append(tile.get_location())
                 return tile_list
 
-        # checks next tile exists
+        # checks if next tile exists
         next_tile = tile.get_orthogonal_tiles(direction)
 
-        # end of board
+        # if end of board is reached, return the list of available moves
         if next_tile == []:
             return tile_list
 
@@ -125,15 +266,35 @@ class Cannon(Piece):
 
         return self.rec_find_vertical_tiles(next_tile_obj, direction, jumpable, tile_list)
 
+
 class Chariot(Piece):
+    """ UNFINISHED THE CHARIOT NEEDS TO BE ABLE TO MOVE IN THE DIAGONALS OF THE PALACE """
+
+    """ Represents a Chariot piece. The Chariot starts at the corners of the board. The 
+    chariot can move to any space in orthogonal directions. The chariot may also move along 
+    the diagonals of the palaces. """
+
+
     def __init__(self, tile, player, board):
+        """ """
         super().__init__(tile, player, board)
 
+
     def get_valid_moves(self):
+        """
+        Returns the valid moves the chariot can take
+
+        :return: a list. Contains all the moves the chariot can take. The moves are
+        represented as a tuple containing the col and row of the tile the chariot can move to
+        """
+        # initialize the list to be returned
         paths = list()
+        # finds the tiles that are adjacent to the piece in orthogonal directions
         orthogonal = self._tile.get_all_orthogonal_tiles()
+        # finds the tile that the current piece is on
         current = self._tile.get_location()
 
+        # direction keeps track of the direction each orthogonal tile is, relative to the current tile
         direction = list()
         for step_one in orthogonal:
             if step_one[0] < current[0]:
@@ -145,6 +306,7 @@ class Chariot(Piece):
             elif step_one[1] > current[1]:
                 direction.append("DOWN")
 
+        # finds every tile in orthogonal directions that the chariot is able to move to
         index = 0
         for tile in orthogonal:
             # retrieve tile piece is currently on
@@ -152,28 +314,120 @@ class Chariot(Piece):
             row = self.get_location()[1]
             tile_obj = self._board.get_tile(col, row)
 
-            # recursively add valid tiles to move to from each direction
+            # recursively finds valid tiles to move to in each direction
             tiles_in_direction = self.rec_find_vertical_tiles(tile_obj, direction[index])
             index += 1
 
-            # does not add the tile the piece is on
+            # adds the valid tile to the list to be returned
             for x in tiles_in_direction:
                 if x != self.get_location():
                     paths.append(x)
 
+        # if chariot is within a palace, they can move along the diagonals
+
+        # chariot is at the center tile of palace
+        if current == ("e", 2) or current == ("e", 9):
+            diagonal_tiles = self._tile.get_all_diagonal_tiles()
+            for tile in diagonal_tiles:
+                piece = self._board.get_piece_at_tile(tile[0], tile[1])
+                if piece is None:
+                    paths.append(tile)
+                elif piece.get_player() != self.get_player():
+                    paths.append(tile)
+
+        # chariot is on the corner tiles of palace
+        elif current == ("d", 1) or current == ("d", 8):
+            diagonal_tiles = self.rec_find_diagonal_tile(current, "LR")
+            for tile in diagonal_tiles:
+                if tile in [("e", 2), ("f", 3), ("e", 9), ("f", 10)]:
+                    paths.append(tile)
+
+        elif current == ("f", 1) or current == ("f", 8):
+            diagonal_tiles = self.rec_find_diagonal_tile(current, "LL")
+            for tile in diagonal_tiles:
+                if tile in [("e", 2), ("d", 3), ("e", 9), ("d", 10)]:
+                    paths.append(tile)
+
+        elif current == ("d", 3) or current == ("d", 10):
+            diagonal_tiles = self.rec_find_diagonal_tile(current, "UR")
+            for tile in diagonal_tiles:
+                if tile in [("e", 2), ("f", 1), ("e", 9), ("f", 8)]:
+                    paths.append(tile)
+
+        elif current == ("f", 10) or current == ("f", 3):
+            diagonal_tiles = self.rec_find_diagonal_tile(current, "UL")
+            for tile in diagonal_tiles:
+                if tile in [("e", 2), ("d", 1), ("e", 9), ("d", 8)]:
+                    paths.append(tile)
+
         return paths
 
+    def rec_find_diagonal_tile(self, tile, direction, tile_list = None):
+        """
+        Recursively finds valid diagonal tiles to move to within palace
+
+        :param tile: current tile
+        :param direction: direction of diagonal
+        :param tile_list: list of tiles chariot can move to on diagonal
+        :return: a list. Contains valid itles to move to
+        """
+
+        # initialize list to return
+        # if first tile in recursion, skip all checks (it is the tile that the chariot is currently on)
+        if tile_list is None:
+            tile_list = list()
+            tile_obj = self._board.get_tile(tile[0], tile[1])
+            next_tile = tile_obj.get_diagonal_tiles_single(direction)
+
+            return self.rec_find_diagonal_tile(next_tile[0], direction, tile_list)
+
+        # checks if there are any pieces obstructing the chariot path
+        current_tile_piece = self._board.get_piece_at_tile(tile[0], tile[1])
+        tile_obj = self._board.get_tile(tile[0], tile[1])
+        next_tile = tile_obj.get_diagonal_tiles_single(direction)
+
+        # if current diagonal tile does not have a piece, it is a valid tile to move to
+        if current_tile_piece is None:
+            tile_list.append(tile)
+
+            if next_tile != []:
+                return self.rec_find_diagonal_tile(next_tile[0], direction, tile_list)
+            else:
+                return tile_list
+        # tile has a piece on it
+        else:
+            player = current_tile_piece.get_player()
+            if player != self._player:
+                tile_list.append(tile)
+                return tile_list
+            else:
+                return tile_list
+
+
     def rec_find_vertical_tiles(self, tile, direction, tile_list = None):
+        """
+        Recursively finds the tiles the chariot is able to move to in a specific direction.
+        :param tile: The current tile that will be checked as a valid tile to move to
+        :param direction: the direction of relative to the starting tile
+        :param tile_list: list of tiles that the chariot can move to
+        :return: a list. Contains all the tiles that the chariot is able to move to.
+        """
+
+        # initializes the list to be returned
         if tile_list is None:
             tile_list = list()
 
+        # gets the location of the current tile
         current_tile = tile.get_location()
         tile_list.append(current_tile)
 
+        # finds the next tile in the direction relative to current tile
         next_tile = tile.get_orthogonal_tiles(direction)
 
+        # finds the tile object of the current tile
         current_tile_obj = self._board.get_tile(current_tile[0], current_tile[1])
         piece = current_tile_obj.get_piece()
+
         # if current tile has opponent's piece, stop
         if piece is not None and piece.get_player() != self.get_player():
             return tile_list
@@ -193,24 +447,47 @@ class Chariot(Piece):
             return self.rec_find_vertical_tiles(next_tile_obj, direction, tile_list)
 
 class Elephant(Piece):
+    """ Represents the elephant piece. There are two elephants per player on the board. The elephant may move
+    in any orthogonal direction in the first step and diagonally for the second and third steps
+    (both in the same direction). In total, the elephant moves three tiles per turn. There must not be any pieces
+    blocking the elephant in the first and second steps. """
+
     def __init__(self, tile, player, board):
+        """ initializes the elephant """
         super().__init__(tile, player, board)
 
     def get_valid_moves(self):
+        """
+        Returns all valid moves the elephant can take
+
+        :return: a list containing all valid moves the elephant can take. The moves are represented as a tuple
+        containing the col and row of the tile that the elephant can move to.
+        """
+
+        # initializes the list to be returned
+
         valid_moves = list()
+
+        # finds potential paths the elephant can move to
         potential_paths = self.find_paths()
 
+        # checks if the path is blocked by any pieces
         for path in potential_paths:
-            for step in range(0,3):
+            # checks if each step in the path is not blocked
+            for step in range(0, 3):
+                # finds the tile at each step of the path
                 col = path[step][0]
                 row = path[step][1]
                 tile = self._board.get_tile(col, row)
+
+                # finds the piece object and player at the tile
                 piece = tile.get_piece()
                 player = ""
 
                 # if there is a piece in the first two steps of elephant's path, path is not valid
                 if (step == 0 or step == 1) and piece is not None:
                     break
+
                 # if end of path is obstructed by player's own piece, path is not valid
                 if step == 2 and piece is not None and piece.get_player() == self.get_player():
                     break
@@ -221,10 +498,19 @@ class Elephant(Piece):
 
         return valid_moves
 
+
     def find_paths(self):
+        """
+        Finds potential paths that the elephant is able to move to. Does not check if the path is blocked.
+
+        :return: a list containing all paths the elephant can potentially take. The list contains a list of
+        tuples. Each list represents a path and the tuples represents each tile in the path.
+        """
         # find any available orthog tiles
         orthogonal = self._tile.get_all_orthogonal_tiles()
         current = self.get_location()
+
+        # direction keeps track of the direction of the tiles relative to the elephant
         direction = list()
         paths = list()
 
@@ -240,14 +526,17 @@ class Elephant(Piece):
 
         # find the diagonals of the orthogonal tiles
         index = 0
+
+        # iterates through each orthogonal tile and find the two branching paths the elephant can take (if the path is
         for orthog_tile in orthogonal:
             col = orthog_tile[0]
             row = orthog_tile[1]
             tile = self._board.get_tile(col, row)
 
-
+            # finds the two branching paths that the elephant can move to
             fork = tile.get_diagonal_tiles_extended(direction[index])
 
+            # adds the two paths to the possible paths the elephant can take
             for diagonal in fork:
                 paths.append([orthog_tile, diagonal[0], diagonal[1]])
 
@@ -255,11 +544,21 @@ class Elephant(Piece):
 
         return paths
 
+
 class Guard(Piece):
+    """ Represents a guard on the board. There are two guards per player on the board.
+    The guard can only move within its palace. The guard can move one step in any direction in the palace. """
+
     def __init__(self, title, player, board):
+        """ Initializes the guard """
         super().__init__(title, player, board)
 
     def get_valid_moves(self):
+        """
+        Finds all valid moves the Guard can make.
+
+        :return: a list. The list contains all moves the guard can make. The moves are represented by a tuple.
+        """
         paths = self.get_paths()
         valid_moves = list()
         for path in paths:
@@ -273,27 +572,68 @@ class Guard(Piece):
         return valid_moves
 
     def get_paths(self):
+        """
+        Finds all potential paths that the Guard is able to take.
+
+        :return: a list. Contains all tiles the guard can move to (if unobstructed)
+        """
+        # initialize the list to be returned
         paths = list()
-        adjacent = self._tile.get_adjacent_tiles()
+
+        # finds all adjacent tiles
+        adjacent = list()
+
+        diagonals = [("e", 2), ("e", 9), ("d", 1), ("d", 3), ("f", 1), ("f", 3), ("d", 8), ("d", 10), ("f", 8), ("f", 10)]
+
+        if self.get_location() in diagonals:
+            adjacent = self._tile.get_adjacent_tiles()
+        else:
+            adjacent = self._tile.get_all_orthogonal_tiles()
+
+        # checks if adjacent tile is within the palace
         for tile in adjacent:
             col = tile[0]
             row = tile[1]
+            # the range of col and row that the palaces are in
             if col >= 'd' and col <= 'f' and (row <= 3 or row >= 8):
+                # adds to potential paths if tile is within palace
                 paths.append(tile)
 
         return paths
 
+
 class General(Guard):
+    """ Represents a general on the board. Moves similar the two guards in the palace:
+    It can move in any direction as long as it is within the palace. Additionally, each
+    move must not place the general in check. """
+
     def __init__(self, tile, player, board):
+        """ initializes the general"""
         super().__init__(tile, player, board)
 
+
 class Horse(Piece):
+    """ Represents the horse piece. There are two horses per player on the board. The horse
+    may move in any orthogonal direction on the first step and diagonally in the second step.
+    The first step must be unobstructed. In total, the horse moves two tiles per turn. """
+
     def __init__(self, tile, player, board):
         super().__init__(tile, player, board)
 
     def get_valid_moves(self):
+        """
+        Finds all valid moves that the horse can make.
+
+        :return: a list. Contains all valid moves that the horse can make.
+        The moves are represented as tuples of (col, row)
+        """
+        # finds all paths that the horse can potentially take
         possible_paths = self.find_paths()
+
+        # initialize the list to be returned
         valid_paths = list()
+
+        # loops through every possible path that the horse can take and checks if there are any obstructions
         for x in possible_paths:
             # x is a list containing the two tiles the horse must traverse through
             # x[0] is the tuple (col, row) -- the first tile that is traversed
@@ -312,12 +652,23 @@ class Horse(Piece):
             if piece is None and (piece_2 is None or piece_2.get_player() != self.get_player()):
                 valid_paths.append(x[1])
 
+        # returns list of valid moves
         return valid_paths
 
     def find_paths(self):
-        """ Finds potential paths that the horse can move to. Does not check if anything is blocking """
+        """
+        Finds all potential paths that the horse can make. Does not take into account any blocking pieces.
+
+        :return: a list. Contains a list of all potential paths that the horse can take. The list contains
+        lists representing the path the horse can take.
+        """
+
+        # Finds tiles orthogonal to the piece
         orthogonal = self._tile.get_all_orthogonal_tiles()
+
+        # finds the current location of the piece
         current = self.get_location()
+        # direction keeps track of the direction each orthogonal tile is, relative to the piece
         direction = list()
         for step_one in orthogonal:
             if step_one[0] < current[0]:
@@ -329,12 +680,11 @@ class Horse(Piece):
             elif step_one[1] > current[1]:
                 direction.append("DOWN")
 
-        # paths has a list containing list of paths.
-        # paths = [ path1, path2, path3, etc. ]
-
+        # initialize the list to be returned
         pathing = list()
 
         index = 0
+        # iterate through every orthogonal tile and find their branching diagonal paths (if it exists)
         for position in orthogonal:
             # obtains the tile object at the position
             tile = self._board.get_tile(position[0], position[1])
@@ -348,38 +698,73 @@ class Horse(Piece):
 
             index += 1
 
+        # returns list of paths
         return pathing
 
+
 class Soldier(Piece):
+    """ Represents a soldier on the board. There are four soldiers per player on the board.
+    The soldier can only move either forward or to either side. It may not move backwards.
+    If the soldier is in the palace, than it may move forward along the diagonals of the palace. """
+
     def __init__(self, tile, player, board):
+        """ """
         super().__init__(tile, player, board)
 
     def get_valid_moves(self):
-        # list containing tuples
+        """
+        Finds all valid moves for the soldier.
+
+        :return: a list. Contains all valid moves the soldier can move. The moves are represented as
+        a tuple with each tuple being (col, row)
+        """
+
+        # Finds all possible paths the soldier may take
         possible_paths = self.find_paths()
+
+        # initialize the list to be returned
         valid_path = list()
 
+        # iterate through possible paths the soldier may take. It can move to any tile directly in front or to
+        # either side. The path may not be obstructed by player’s on piece.
         for path in possible_paths:
+            # obtains tile object at the possible path and checks if there is an obstructing piece.
             col = path[0]
             row = path[1]
             tile = self._board.get_tile(col, row)
             piece = tile.get_piece()
-
+            # if the path is not obstructed by player’s own piece, path is a valid move
             if piece is None or piece.get_player() != self._player:
                 valid_path.append(path)
 
+        # return list of valid moves
         return valid_path
 
     def find_paths(self):
         """
-        Finds potential paths that the soldier can move to. Does not check if any pieces or blocking
-        :return: list containing paths
+        Finds potential paths that the soldier can move to. Does not check if any pieces are blocking the path
+
+        :return: a list. Contains possible paths the soldier can move to. The paths are represented as
+        a tuple, (col, row).
         """
+
+        # initialize list to be returned
+        paths = list()
+
+        # finds current tile of piece
         current_tile = self._tile
+
+        # finds all tiles orthogonal to the piece
         orthogonal = current_tile.get_all_orthogonal_tiles()
 
-        upper_tile = current_tile.get_orthogonal_tiles("UP")[0]
-        lower_tile = current_tile.get_orthogonal_tiles("DOWN")[0]
+        # Finds the orthogonal tiles that are above (UP) and below the piece.
+        upper_tile = current_tile.get_orthogonal_tiles("UP")
+        if upper_tile != []:
+            upper_tile = current_tile.get_orthogonal_tiles("UP")[0]
+
+        lower_tile = current_tile.get_orthogonal_tiles("DOWN")
+        if lower_tile != []:
+            lower_tile = current_tile.get_orthogonal_tiles("DOWN")[0]
 
         # if the soldier is in the palace, it can also move diagonally
 
@@ -403,15 +788,21 @@ class Soldier(Piece):
 
             # if the blue soldier is in the red palace, it may also move diagonally
             if current_tile.get_location() == ("f", 3):
-                paths.append([("f", 3), ("e", 2)])
+                paths.append(("e", 2))
             elif current_tile.get_location() == ("d", 3):
-                paths.append([("d", 3), ("e", 2)])
+                paths.append(("e", 2))
             elif current_tile.get_location == ("e", 2):
                 paths.append(current_tile.get_diagonal_tiles("UP"))
 
+
         return paths
 
+
 class JanggiTile():
+    """ Represents a tile on the board. Each tile has location field members, an associated piece object,
+    and the board it belongs to. It has methods to find tiles adjacent to a specific tile and methods to
+    find the piece on a tile. """
+
     def __init__(self, board, col, row):
         self._board = board
         self._col = to_alphabetical(col)
@@ -419,64 +810,102 @@ class JanggiTile():
         self._piece = None
 
     def get_location(self):
+        """
+        Returns the location of the tile.
+
+        :return: a tuple. Contains the col and row of the tile on the board.
+        """
         return (self._col, self._row)
 
     def get_piece(self):
+        """
+        Returns the piece on the tile.
+
+        :return: a piece object. Returns the piece object if there is a piece on the board.
+        Otherwise returns None if there is no piece occupying the tile.
+        """
         return self._piece
 
     def set_piece(self, piece):
+        """
+        Sets a piece onto the tile.
+
+        :param piece: The piece to be placed onto the tile
+        :return: None
+        """
         self._piece = piece
 
     def get_adjacent_tiles(self):
-        """ Returns a list containing all coordinates of adjacent tiles """
+        """
+        Returns all adjacent tiles.
 
-        # create empty set
+        :return: a list. Contains a list of all adjacent tiles. The tiles are represented as a tuple (col, row)
+        """
+
+        # initialize the list to be returned
         adjacentTiles = list()
-        # coordinate of current tile
+        # finds coordinate of current tile as a tuple
         currentTile = (to_numerical(self._col), self._row)
 
-        # nested loop to find coordinates of adjacent tiles
+        # nested loop to find coordinates of adjacent tiles. Tiles must be at a valid coordinate on the board.
         for col in range(-1, 2):
             for row in range(-1, 2):
 
-                # calculates coordinate
+                # calculates the coordinates adjacent to current tile
                 adjCol = to_numerical(self._col) + col
                 adjRow = self._row + row
 
-                # checks if the tile is a valid tile
+                # checks if the tile is a valid tile on the board
                 if adjCol in range(0, 9) and adjRow in range(1, 11) \
                         and (adjCol, adjRow) != currentTile:
                     # add adjacent tile to set
                     adjCol = to_alphabetical(adjCol)
                     adjacentTiles.append((adjCol, adjRow))
 
+        # returns list of adjacent tile
         return adjacentTiles
 
     def get_all_diagonal_tiles(self):
+        """
+        Finds all adjacent tiles that are diagonal to tile.
 
+        :return: a list. Contains all tiles that are diagonal to current tile. The tiles
+        are represented as a tuple (col, row)
+        """
+
+        # finds all adjacent tiles
         adjacent_tiles = self.get_adjacent_tiles()
 
+        # finds location of current tile
         current_location = self.get_location()
-
+        # initialize list to be returned
         diagonal_tiles = list()
 
+        # iterates through every adjacent tile and finds tiles that are diagonal to current tile
         for tile in adjacent_tiles:
             if tile[0] not in current_location and tile[1] not in current_location:
                 diagonal_tiles.append(tile)
-
+        # returns list of diagonal tiles
         return diagonal_tiles
 
     def get_diagonal_tiles(self, direction):
         """
-        Returns a list containing adjacent tiles that are diagonal from current tile in a
-        specified direction
-        """
+        Returns diagonal tiles in a specified direction
 
+        :param direction: The direction of diagonal tiles relative to current tile. The
+        direction can either be ‘UP’, ‘DOWN’, ‘LEFT’, and ‘RIGHT’.
+        :return: Returns a list containing the diagonal tiles in a specified direction.
+        """
+        # finds all diagonal tiles
         all_diagonal = self.get_all_diagonal_tiles()
 
+        # finds current location
         current_location = self.get_location()
 
+        # initialize list to be returned
         tiles_in_direction = list()
+
+        # iterates through all diagonal tiles and finds the tiles in the specified direction.
         for tile in all_diagonal:
 
             if direction == "UP" and tile[1] < current_location[1]:
@@ -491,9 +920,16 @@ class JanggiTile():
             elif direction == "RIGHT" and tile[0] > current_location[0]:
                 tiles_in_direction.append(tile)
 
+        # returns a list containing the diagonal tiles
         return tiles_in_direction
 
     def get_diagonal_tiles_single(self, direction):
+        """
+        Returns a diagonal tile in a specified direction.
+
+        :param direction:
+        :return:
+        """
         all_diagonal = self.get_all_diagonal_tiles()
 
         current_location = self.get_location()
@@ -511,10 +947,15 @@ class JanggiTile():
             elif direction == "LR" and tile[1] > current_location[1] and tile[0] > current_location[0]:
                 tiles_in_direction.append(tile)
 
-
         return tiles_in_direction
 
     def get_diagonal_tiles_extended(self, direction):
+        """
+        Returns diagonal tiles that are two tiles away from current tile in a specified direction.
+
+        :param direction: The direction of the tiles
+        :return: a list. Contains
+        """
         dict = {"UP": ("UL", "UR"), "DOWN": ("LL", "LR"), "LEFT": ("UL", "LL"), "RIGHT": ("UR", "LR")}
         dir = dict[direction]
 
@@ -543,10 +984,15 @@ class JanggiTile():
                 second_dir_tile2 = second_dir_tile2[0]
                 paths.append([second_dir_tile1, second_dir_tile2])
 
-
         return paths
 
     def get_all_orthogonal_tiles(self):
+        """
+        Returns all tiles that are orthogonal to current tile.
+
+        :return: a list. Contains all tiles that are orthogonal to current tile.
+        The tiles are represented as a tuple of the location that are at.
+        """
 
         adjacent_tiles = self.get_adjacent_tiles()
 
@@ -561,6 +1007,11 @@ class JanggiTile():
         return all_orthogonal
 
     def get_orthogonal_tiles(self, direction):
+        """
+
+        :param direction:
+        :return:
+        """
 
         all_orthogonal = self.get_all_orthogonal_tiles()
 
@@ -581,6 +1032,13 @@ class JanggiTile():
         return tiles_in_direction
 
     def rec_find_vertical_tiles(self, tile, direction, tile_list=None):
+        """
+
+        :param tile:
+        :param direction:
+        :param tile_list:
+        :return:
+        """
         if tile_list is None:
             tile_list = list()
 
@@ -595,7 +1053,10 @@ class JanggiTile():
             next_tile_obj = self._board.get_tile(next_tile[0][0], next_tile[0][1])
             return self.rec_find_vertical_tiles(next_tile_obj, direction, tile_list)
 
+
 class JanggiBoard():
+    """
+    """
     def __init__(self):
         self._tiles = [[JanggiTile(self, col, row) for col in range(0, 9)] for row in range(1, 11)]
         self._red_pieces = []
@@ -620,12 +1081,23 @@ class JanggiBoard():
                              "e9": "GENERAL"}
 
     def add_red(self, piece):
+        """
+
+        :param piece:
+        :return:
+        """
         self._red_pieces.append(piece)
 
     def add_blue(self, piece):
+        """
+
+        :param piece:
+        :return:
+        """
         self._blue_pieces.append(piece)
 
     def set_blue_general(self, general):
+        """ """
         self._blue_general = general
 
     def get_captured(self):
@@ -667,8 +1139,10 @@ class JanggiBoard():
             # iterates through every valid move for the opponent piece
             for move in piece.get_valid_moves():
                 # if the opponent piece is able to capture player's general, player is in check
+                test = general.get_location()
                 if move == general.get_location():
                     is_in_check = True
+                    return is_in_check
 
         # return True if player is in check, False otherwise
         return is_in_check
@@ -679,7 +1153,7 @@ class JanggiBoard():
 
         :param col: The column of the specified tile. Must be a character between 'a' and 'i'
         :param row: The row of the specified tile
-
+        :return: tile object
          """
         board = self._tiles
 
@@ -688,6 +1162,7 @@ class JanggiBoard():
         return board[row - 1][col]
 
     def get_piece_at_tile(self, col, row):
+        """ """
         tile = self.get_tile(col, row)
         piece = tile.get_piece()
         return piece
@@ -696,10 +1171,10 @@ class JanggiBoard():
         """
         Moves a piece to a target location
 
-        :param piece:
-        :param col:
-        :param row:
-        :return:
+        :param piece: The piece to be moved
+        :param col: the col of the tile
+        :param row: the row of the tile
+        :return: None
         """
 
         destination_tile = self.get_tile(col, row)
@@ -764,6 +1239,7 @@ class JanggiBoard():
         return not in_check
 
     def is_checkmated(self, player):
+        """ """
         # finds all possible moves the player can make
         player_pieces = {"BLUE": [x for x in self._blue_pieces if x not in self._captured],
                   "RED": [x for x in self._red_pieces if x not in self._captured]}
@@ -819,6 +1295,14 @@ class JanggiBoard():
             tile.set_piece(piece)
 
     def create_piece(self, type, tile, player, board):
+        """
+        Creates a piece and places it onto the board.
+        :param type:
+        :param tile:
+        :param player:
+        :param board:
+        :return:
+        """
         piece = None
         if type == "CHARIOT":
             piece = Chariot(tile, player, board)
@@ -838,6 +1322,12 @@ class JanggiBoard():
         return piece
 
     def print_board(self):
+        """
+        Prints out the board into a csv file
+
+        :return: None
+        """
+
         with open("JanggiBoard_state.csv", "w") as outfile:
             for row in self._tiles:
                 for col in row:
@@ -854,6 +1344,10 @@ class JanggiBoard():
                 outfile.write("\n")
 
 class JanggiGame():
+    """ Representation of the korean chess game named 'Janggi'. Players are able to make moves with this class.
+     Additionally, players can check the state of the game. The game is over if a player is unable to make a move
+     that prevents the general from being captured in the next turn. Janggi game utilizes the JanggiBoard class
+     to make changes to the board. """
     def __init__(self):
         self._board = JanggiBoard()
         self._board.set_up()
@@ -862,19 +1356,33 @@ class JanggiGame():
         self._current_player = "BLUE"
 
     def get_game_state(self):
+        """
+        Returns the state of the Game. Can either be 'UNFINISHED', 'RED_WON', or 'BLUE_WON'
+        :return: a String. The state of the game
+        """
         return self._game_state
 
     def get_board(self):
+        """
+        Returns the board object associated with the game
+        :return: Board object
+        """
         return self._board
 
     def is_in_check(self, player):
+        """
+        Checks if a player's general is in check.
+
+        :param player: the player to check
+        :return: Boolean. True or false depending if a player is in check
+        """
         return self._board.is_player_in_check(player.upper(), self._board.get_captured())
 
     def valid_col(self, col):
         """
         Checks if column input is within valid range
         :param col:
-        :return:
+        :return: a boolean. True if row is valid, false if not
         """
         valid_col = col >= 'a' and col <= 'i'
         return valid_col
@@ -882,14 +1390,21 @@ class JanggiGame():
     def valid_row(self, row):
         """
         Checks if row input is within valid range
-        :param row:
-        :return:
+        :param row: the row input
+        :return: bool. True if row is valid, false if not
         """
         valid_row = row >= 1 and row <= 10
+        return valid_row
 
     def make_move(self, start, end):
+        """
+        Makes a move on the Janggi board. Blue player always starts first. Returns False if move was invalid.
+        Returns true if valid move. The player may skip a turn if start = end.
 
-        print("game.make_move(", start,",", end, ")")
+        :param start: the piece that will be moved
+        :param end: the ending location
+        :return: a boolean. True if move was successful, False if not
+        """
 
         # if game is finished, return False
         if self._game_state != "UNFINISHED":
@@ -957,10 +1472,19 @@ class JanggiGame():
         return True
 
     def set_winner(self, player):
+        """
+
+        :param player:
+        :return:
+        """
         self._game_state = player + "_WON"
 
 
     def switch_player(self):
+        """
+
+        :return:
+        """
         if self._current_player == "BLUE":
             self._current_player = "RED"
         else:
