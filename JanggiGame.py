@@ -1538,10 +1538,7 @@ class JanggiGame():
         if (end_col, end_row) not in valid_moves:
             return False
 
-        """ UNFINISHED """
-        # if move leaves general in check, return False UNLESS *************** IT IS A GAME WINNING MOVE
-        # forces player to protect general if already in check
-        # does not matter if in check or not... next move must not make general stay in check
+        # check is move is valid
         if not self._board.is_valid_move(target_piece, end_col, end_row):
             return False
 
@@ -1555,9 +1552,6 @@ class JanggiGame():
         if self._board.is_checkmated(self._current_player):
             loser_winner = {"BLUE": "RED", "RED": "BLUE"}
             self.set_winner(loser_winner[self._current_player])
-
-
-        self._board.print_board()
 
         # return true if move was successful
         return True
